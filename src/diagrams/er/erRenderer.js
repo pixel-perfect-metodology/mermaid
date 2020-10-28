@@ -6,6 +6,7 @@ import dagre from 'dagre';
 import { getConfig } from '../../config';
 import { logger } from '../../logger';
 import erMarkers from './erMarkers';
+import { configureSvgSize } from '../../utils';
 
 const conf = {};
 
@@ -43,6 +44,7 @@ const drawEntities = function(svgNode, entities, graph) {
     const textId = 'entity-' + id;
     const textNode = groupNode
       .append('text')
+      .attr('class', 'er entityLabel')
       .attr('id', textId)
       .attr('x', 0)
       .attr('y', 0)
@@ -65,6 +67,7 @@ const drawEntities = function(svgNode, entities, graph) {
     // Draw the rectangle - insert it before the text so that the text is not obscured
     const rectNode = groupNode
       .insert('rect', '#' + textId)
+      .attr('class', 'er entityBox')
       .attr('fill', conf.fill)
       .attr('fill-opacity', '100%')
       .attr('stroke', conf.stroke)
@@ -148,6 +151,7 @@ const drawRelationshipFromLayout = function(svg, rel, g, insert) {
   // Insert the line at the right place
   const svgPath = svg
     .insert('path', '#' + insert)
+    .attr('class', 'er relationshipLine')
     .attr('d', lineFunction(edge.points))
     .attr('stroke', conf.stroke)
     .attr('fill', 'none');
@@ -224,6 +228,7 @@ const drawRelationshipFromLayout = function(svg, rel, g, insert) {
 
   const labelNode = svg
     .append('text')
+    .attr('class', 'er relationshipLabel')
     .attr('id', labelId)
     .attr('x', labelPoint.x)
     .attr('y', labelPoint.y)
@@ -241,6 +246,7 @@ const drawRelationshipFromLayout = function(svg, rel, g, insert) {
   // Insert the opaque rectangle before the text label
   svg
     .insert('rect', '#' + labelId)
+    .attr('class', 'er relationshipLabelBox')
     .attr('x', labelPoint.x - labelBBox.width / 2)
     .attr('y', labelPoint.y - labelBBox.height / 2)
     .attr('width', labelBBox.width)
@@ -339,9 +345,8 @@ export const draw = function(text, id) {
   const width = svgBounds.width + padding * 2;
   const height = svgBounds.height + padding * 2;
 
-  svg.attr('height', height);
-  svg.attr('width', '100%');
-  svg.attr('style', `max-width: ${width}px;`);
+  configureSvgSize(svg, height, width, conf.useMaxWidth);
+
   svg.attr('viewBox', `${svgBounds.x - padding} ${svgBounds.y - padding} ${width} ${height}`);
 }; // draw
 

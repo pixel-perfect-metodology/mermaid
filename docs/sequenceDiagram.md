@@ -16,9 +16,11 @@ sequenceDiagram
     John-->>Alice: Great!
 ```
 
-## A note on nodes, the word "end" could potentially break the diagram, due to the way that the mermaid language is scripted.
-## If unavoidable, one must use parentheses(), quotation marks "", or brackets {},[], to enclose the word "end". i.e : (end), [end], {end}.
+```note
+A note on nodes, the word "end" could potentially break the diagram, due to the way that the mermaid language is scripted.
 
+If unavoidable, one must use parentheses(), quotation marks "", or brackets {},[], to enclose the word "end". i.e : (end), [end], {end}.
+```
 
 ## Syntax
 
@@ -502,11 +504,11 @@ mermaid.sequenceConfig = {
 };
 ```
 
-### Possible configuration params:
+### Possible configuration parameters:
 
-| Param             | Description                                                                                                                                | Default value                  |
+| Parameter         | Description                                                                                                                                | Default value                  |
 | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------ |
-| mirrorActors       | Turns on/off the rendering of actors below the diagram as well as above it                                                                 | false                          |
+| mirrorActors      | Turns on/off the rendering of actors below the diagram as well as above it                                                                 | false                          |
 | bottomMarginAdj   | Adjusts how far down the graph ended. Wide borders styles with css could generate unwanted clipping which is why this config param exists. | 1                              |
 | actorFontSize     | Sets the font size for the actor's description                                                                                             | 14                             |
 | actorFontFamily   | Sets the font family for the actor's description                                                                                           | "Open-Sans", "sans-serif"      |

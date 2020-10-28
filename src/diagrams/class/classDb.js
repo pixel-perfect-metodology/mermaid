@@ -1,18 +1,21 @@
 import { select } from 'd3';
 import { logger } from '../../logger';
-import { getConfig } from '../../config';
+import * as configApi from '../../config';
 import common from '../common/common';
 import utils from '../../utils';
+import mermaidAPI from '../../mermaidAPI';
 
 const MERMAID_DOM_ID_PREFIX = 'classid-';
-
-const config = getConfig();
 
 let relations = [];
 let classes = {};
 let classCounter = 0;
 
 let funs = [];
+
+export const parseDirective = function(statement, context, type) {
+  mermaidAPI.parseDirective(this, statement, context, type);
+};
 
 const splitClassNameAndType = function(id) {
   let genericType = '';
@@ -21,6 +24,7 @@ const splitClassNameAndType = function(id) {
   if (id.indexOf('~') > 0) {
     let split = id.split('~');
     className = split[0];
+
     genericType = split[1];
   }
 
@@ -46,6 +50,7 @@ export const addClass = function(id) {
     annotations: [],
     domId: MERMAID_DOM_ID_PREFIX + classId.className + '-' + classCounter
   };
+
   classCounter++;
 };
 
@@ -169,6 +174,7 @@ export const setCssClass = function(ids, className) {
  * @param tooltip Tooltip for the clickable element
  */
 export const setLink = function(ids, linkStr, tooltip) {
+  const config = configApi.getConfig();
   ids.split(',').forEach(function(_id) {
     let id = _id;
     if (_id[0].match(/\d/)) id = MERMAID_DOM_ID_PREFIX + id;
@@ -192,11 +198,13 @@ export const setLink = function(ids, linkStr, tooltip) {
 export const setClickEvent = function(ids, functionName, tooltip) {
   ids.split(',').forEach(function(id) {
     setClickFunc(id, functionName, tooltip);
+    classes[id].haveCallback = true;
   });
   setCssClass(ids, 'clickable');
 };
 
 const setClickFunc = function(domId, functionName, tooltip) {
+  const config = configApi.getConfig();
   let id = domId;
   let elemId = lookUpDomId(id);
 
@@ -288,6 +296,8 @@ const setupToolTips = function(element) {
 funs.push(setupToolTips);
 
 export default {
+  parseDirective,
+  getConfig: () => configApi.getConfig().class,
   addClass,
   bindFunctions,
   clear,

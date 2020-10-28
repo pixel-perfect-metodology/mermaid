@@ -1,19 +1,23 @@
 # Gantt diagrams
 
+**Edit this Page** [![N|Solid](img/GitHub-Mark-32px.png)](https://github.com/mermaid-js/mermaid/blob/develop/docs/gantt.md)
+
 > A Gantt chart is a type of bar chart, first developed by Karol Adamiecki in 1896, and independently by Henry Gantt in the 1910s, that illustrates a project schedule and the amount of time it would take for any one project to finish. Gantt charts illustrate number of days between the start and finish dates of the terminal elements and summary elements of a project.
- 
+
  ## A note to users
  Gantt Charts will record each scheduled task as one continuous bar that extends from the left to the right. The x axis represents time and the y records the different tasks and the order in which they are to be completed.   
- 
+
+
  It is important to remember that when a date, day, or collection of dates specific to a task are "excluded", the Gantt Chart will accomodate those changes by extending an equal number of day, towards the right, not by creating a gap inside the task.
  As shown here ![](https://raw.githubusercontent.com/NeilCuzon/mermaid/develop/docs/img/Gantt-excluded-days-within.png)
- 
+
+
  However, if the excluded dates are between two tasks that are set to start consecutively, the excluded dates will be skipped graphically and left blank, and the following task will begin after the end of the excluded dates.   
  As shown here ![](https://raw.githubusercontent.com/NeilCuzon/mermaid/develop/docs/img/Gantt-long-weekend-look.png)
- 
- A Gantt chart is useful for tracking the amount of time it would take before a project is finished, but it can also be used to graphically represent "non-working days", with a few tweaks. 
- 
-Mermaid can render Gantt diagrams as SVG, PNG or a MarkDown link that can be pasted into docs. 
+
+ A Gantt chart is useful for tracking the amount of time it would take before a project is finished, but it can also be used to graphically represent "non-working days", with a few tweaks.
+
+Mermaid can render Gantt diagrams as SVG, PNG or a MarkDown link that can be pasted into docs.
 
 ```
 gantt
@@ -41,67 +45,68 @@ gantt
 
 ```
 gantt
+    dateFormat  YYYY-MM-DD
+    title       Adding GANTT diagram functionality to mermaid
+    excludes    weekends
+    %% (`excludes` accepts specific dates in YYYY-MM-DD format, days of the week ("sunday") or "weekends", but not the word "weekdays".)
 
+    section A section
+    Completed task            :done,    des1, 2014-01-06,2014-01-08
+    Active task               :active,  des2, 2014-01-09, 3d
+    Future task               :         des3, after des2, 5d
+    Future task2              :         des4, after des3, 5d
 
-       dateFormat                :YYYY-MM-DD
-       title                     :Adding GANTT diagram functionality to mermaid
-       excludes                  :excludes the named dates/days from being included in a charted task.. 
-       (Accepts specific dates in YYYY-MM-DD format, days of the week ("sunday") or "weekends", but not the word "weekdays".) 
-       section A section
-       Completed task            :done,    des1, 2014-01-06,2014-01-08
-       Active task               :active,  des2, 2014-01-09, 3d
-       Future task               :         des3, after des2, 5d
-       Future task2              :         des4, after des3, 5d
+    section Critical tasks
+    Completed task in the critical line :crit, done, 2014-01-06,24h
+    Implement parser and jison          :crit, done, after des1, 2d
+    Create tests for parser             :crit, active, 3d
+    Future task in critical line        :crit, 5d
+    Create tests for renderer           :2d
+    Add to mermaid                      :1d
 
-       section Critical tasks
-       Completed task in the critical line :crit, done, 2014-01-06,24h
-       Implement parser and jison          :crit, done, after des1, 2d
-       Create tests for parser             :crit, active, 3d
-       Future task in critical line        :crit, 5d
-       Create tests for renderer           :2d
-       Add to mermaid                      :1d
+    section Documentation
+    Describe gantt syntax               :active, a1, after des1, 3d
+    Add gantt diagram to demo page      :after a1  , 20h
+    Add another diagram to demo page    :doc1, after a1  , 48h
 
-       section Documentation
-       Describe gantt syntax               :active, a1, after des1, 3d
-       Add gantt diagram to demo page      :after a1  , 20h
-       Add another diagram to demo page    :doc1, after a1  , 48h
-
-       section Last section
-       Describe gantt syntax               :after doc1, 3d
-       Add gantt diagram to demo page      :20h
-       Add another diagram to demo page    :48h
-   ```
+    section Last section
+    Describe gantt syntax               :after doc1, 3d
+    Add gantt diagram to demo page      :20h
+    Add another diagram to demo page    :48h
+```
 ```mermaid
 gantt
-       dateFormat  YYYY-MM-DD
-       title Adding GANTT diagram functionality to mermaid
+    dateFormat  YYYY-MM-DD
+    title       Adding GANTT diagram functionality to mermaid
+    excludes    weekends
+    %% (`excludes` accepts specific dates in YYYY-MM-DD format, days of the week ("sunday") or "weekends", but not the word "weekdays".)
 
-       section A section
-       Completed task            :done,    des1, 2014-01-06,2014-01-08
-       Active task               :active,  des2, 2014-01-09, 3d
-       Future task               :         des3, after des2, 5d
-       Future task2              :         des4, after des3, 5d
+    section A section
+    Completed task            :done,    des1, 2014-01-06,2014-01-08
+    Active task               :active,  des2, 2014-01-09, 3d
+    Future task               :         des3, after des2, 5d
+    Future task2              :         des4, after des3, 5d
 
-       section Critical tasks
-       Completed task in the critical line :crit, done, 2014-01-06,24h
-       Implement parser and jison          :crit, done, after des1, 2d
-       Create tests for parser             :crit, active, 3d
-       Future task in critical line        :crit, 5d
-       Create tests for renderer           :2d
-       Add to mermaid                      :1d
+    section Critical tasks
+    Completed task in the critical line :crit, done, 2014-01-06,24h
+    Implement parser and jison          :crit, done, after des1, 2d
+    Create tests for parser             :crit, active, 3d
+    Future task in critical line        :crit, 5d
+    Create tests for renderer           :2d
+    Add to mermaid                      :1d
 
-       section Documentation
-       Describe gantt syntax               :active, a1, after des1, 3d
-       Add gantt diagram to demo page      :after a1  , 20h
-       Add another diagram to demo page    :doc1, after a1  , 48h
+    section Documentation
+    Describe gantt syntax               :active, a1, after des1, 3d
+    Add gantt diagram to demo page      :after a1  , 20h
+    Add another diagram to demo page    :doc1, after a1  , 48h
 
-       section Last section
-       Describe gantt syntax               :after doc1, 3d
-       Add gantt diagram to demo page      :20h
-       Add another diagram to demo page    :48h
-   ```
+    section Last section
+    Describe gantt syntax               :after doc1, 3d
+    Add gantt diagram to demo page      :20h
+    Add another diagram to demo page    :48h
+```
 
-It is possible to set multiple depenendenies separated by space:
+It is possible to set multiple dependencies separated by space:
 ```
     gantt
         apple :a, 2017-07-20, 1w
@@ -132,7 +137,7 @@ To do so, start a line with the `section` keyword and give it a name. (Note that
 `dateFormat` defines the format of the date **input** of your gantt elements. How these dates are represented in the rendered chart **output** are defined by `axisFormat`.
 
 
-### Input date format 
+### Input date format
 
 The default input date format is `YYYY-MM-DD`. You can define your custom ``dateFormat``.
 
@@ -172,7 +177,7 @@ More info in: http://momentjs.com/docs/#/parsing/string-format/
 The default output date format is YYYY-MM-DD. You can define your custom ``axisFormat``, like `2020-Q1` for the first quarter of the year 2020.
 
 ```
-axisFormat  %Y-%m-%d 
+axisFormat  %Y-%m-%d
 ```
 
 The following formating strings are supported:
@@ -333,7 +338,7 @@ mermaid.ganttConfig = {
 Param | Descriotion | Default value
 --- | --- | ---
 mirrorActor|Turns on/off the rendering of actors below the diagram as well as above it|false
-bottomMarginAdj|Adjusts how far down the graph ended. Wide borders styles with css could generate unwantewd clipping which is why this config param exists.|1
+bottomMarginAdj|Adjusts how far down the graph ended. Wide borders styles with css could generate unwanted clipping which is why this config param exists.|1
 
 ## Interaction
 
@@ -348,7 +353,7 @@ click taskId href URL
 * callback is the name of a javascript function defined on the page displaying the graph, the function will be called with the taskId as the parameter if no other arguments are specified..
 
 Beginners tip, a full example using interactive links in an html context:
-```
+```html
 <body>
   <div class="mermaid">
     gantt

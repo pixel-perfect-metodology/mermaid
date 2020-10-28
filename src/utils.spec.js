@@ -116,13 +116,13 @@ Alice->Bob: hi`;
   });
   it('should handle an init definition with config converted to the proper diagram configuration', function() {
     const str = `
-%%{init: { 'logLevel': 0, 'theme': 'dark', 'config': {'wrapEnabled': true} } }%%
+%%{init: { 'logLevel': 0, 'theme': 'dark', 'config': {'wrap': true} } }%%
 sequenceDiagram
 Alice->Bob: hi`;
     const type = utils.detectType(str);
     const init = utils.detectInit(str);
     expect(type).toBe('sequence');
-    expect(init).toEqual({logLevel:0, theme:"dark", sequence: { wrapEnabled: true }});
+    expect(init).toEqual({logLevel:0, theme:"dark", sequence: { wrap: true }});
   });
   it('should handle a multiline init definition', function() {
     const str = `
@@ -171,7 +171,6 @@ Alice->Bob: hi`;
     expect(type).toBe('git');
   });
 });
-
 describe('when finding substring in array ', function() {
   it('should return the array index that contains the substring', function() {
     const arr = ['stroke:val1', 'fill:val2'];
@@ -184,7 +183,6 @@ describe('when finding substring in array ', function() {
     expect(result).toEqual(-1);
   });
 });
-
 describe('when formatting urls', function() {
   it('should handle links', function() {
     const url = 'https://mermaid-js.github.io/mermaid/#/';
@@ -240,5 +238,18 @@ describe('when formatting urls', function() {
     config.securityLevel = 'strict';
     result = utils.formatUrl(url, config);
     expect(result).toEqual('about:blank');
+  });
+});
+describe('when calculating SVG size', function() {
+  it('should return width 100% when useMaxWidth is true', function () {
+    const attrs = utils.calculateSvgSizeAttrs(100, 200, true);
+    expect(attrs.get('height')).toEqual(100);
+    expect(attrs.get('style')).toEqual('max-width: 200px;');
+    expect(attrs.get('width')).toEqual('100%');
+  });
+  it('should return absolute width when useMaxWidth is false', function () {
+    const attrs = utils.calculateSvgSizeAttrs(100, 200, false);
+    expect(attrs.get('height')).toEqual(100);
+    expect(attrs.get('width')).toEqual(200);
   });
 });

@@ -14,8 +14,9 @@ import { logger } from '../../logger';
 export const drawStartState = g =>
   g
     .append('circle')
-    .style('stroke', 'black')
-    .style('fill', 'black')
+    // .style('stroke', 'black')
+    // .style('fill', 'black')
+    .attr('class', 'start-state')
     .attr('r', getConfig().state.sizeUnit)
     .attr('cx', getConfig().state.padding + getConfig().state.sizeUnit)
     .attr('cy', getConfig().state.padding + getConfig().state.sizeUnit);
@@ -168,7 +169,6 @@ export const addTitleAndBox = (g, stateDef, altBkg) => {
   //   .attr('class', 'descr-divider');
 
   const graphBox = g.node().getBBox();
-  // console.warn(width / 2, titleWidth / 2, getConfig().state.padding, orgBox);
   // descrLine.attr('x2', graphBox.width + getConfig().state.padding);
 
   if (stateDef.doc) {
@@ -241,8 +241,9 @@ export const addTitleAndBox = (g, stateDef, altBkg) => {
 
 const drawEndState = g => {
   g.append('circle')
-    .style('stroke', 'black')
-    .style('fill', 'white')
+    // .style('stroke', 'black')
+    // .style('fill', 'white')
+    .attr('class', 'end-state-outer')
     .attr('r', getConfig().state.sizeUnit + getConfig().state.miniPadding)
     .attr(
       'cx',
@@ -253,13 +254,16 @@ const drawEndState = g => {
       getConfig().state.padding + getConfig().state.sizeUnit + getConfig().state.miniPadding
     );
 
-  return g
-    .append('circle')
-    .style('stroke', 'black')
-    .style('fill', 'black')
-    .attr('r', getConfig().state.sizeUnit)
-    .attr('cx', getConfig().state.padding + getConfig().state.sizeUnit + 2)
-    .attr('cy', getConfig().state.padding + getConfig().state.sizeUnit + 2);
+  return (
+    g
+      .append('circle')
+      // .style('stroke', 'black')
+      // .style('fill', 'black')
+      .attr('class', 'end-state-inner')
+      .attr('r', getConfig().state.sizeUnit)
+      .attr('cx', getConfig().state.padding + getConfig().state.sizeUnit + 2)
+      .attr('cy', getConfig().state.padding + getConfig().state.sizeUnit + 2)
+  );
 };
 const drawForkJoinState = (g, stateDef) => {
   let width = getConfig().state.forkWidth;
@@ -323,7 +327,6 @@ const _drawLongText = (_text, x, y, g) => {
         const textBounds = span.node().getBBox();
         tHeight += textBounds.height;
       }
-      // console.warn('textBounds', textBounds);
       textHeight += tHeight;
       span.attr('x', x + getConfig().state.noteMargin);
       span.attr('y', y + textHeight + 1.25 * getConfig().state.noteMargin);
@@ -450,8 +453,6 @@ export const drawEdge = function(elem, path, relation) {
     const { x, y } = utils.calcLabelPosition(path.points);
 
     const rows = common.getRows(relation.title);
-
-    // console.warn(rows);
 
     let titleHeight = 0;
     const titleRows = [];

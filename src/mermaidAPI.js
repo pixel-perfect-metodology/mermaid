@@ -1,7 +1,7 @@
 /**
  * This is the api to be used when optionally handling the integration with the web page, instead of using the default integration provided by mermaid.js.
  *
- * The core of this api is the [**render**](https://github.com/knsv/mermaid/blob/master/docs/mermaidAPI.md#render) function which, given a graph
+ * The core of this api is the [**render**](Setup.md?id=render) function which, given a graph
  * definition as text, renders the graph/diagram and returns an svg element for the graph.
  *
  * It is is then up to the user of the API to make use of the svg, either insert it somewhere in the page or do something completely different.
@@ -10,10 +10,18 @@
  *
  * @name mermaidAPI
  */
+import Stylis from 'stylis';
 import { select } from 'd3';
-import scope from 'scope-css';
 import pkg from '../package.json';
-import { setConfig, getConfig, setSiteConfig, getSiteConfig } from './config';
+// import * as configApi from './config';
+// // , {
+// //   setConfig,
+// //   configApi.getConfig,
+// //   configApi.updateSiteConfig,
+// //   configApi.setSiteConfig,
+// //   configApi.getSiteConfig,
+// //   configApi.defaultConfig
+// // }
 import { logger, setLogLevel } from './logger';
 import utils, { assignWithDepth } from './utils';
 import flowRenderer from './diagrams/flowchart/flowRenderer';
@@ -27,6 +35,7 @@ import ganttRenderer from './diagrams/gantt/ganttRenderer';
 import ganttParser from './diagrams/gantt/parser/gantt';
 import ganttDb from './diagrams/gantt/ganttDb';
 import classRenderer from './diagrams/class/classRenderer';
+import classRendererV2 from './diagrams/class/classRenderer-v2';
 import classParser from './diagrams/class/parser/classDiagram';
 import classDb from './diagrams/class/classDb';
 import stateRenderer from './diagrams/state/stateRenderer';
@@ -49,13 +58,9 @@ import erRenderer from './diagrams/er/erRenderer';
 import journeyParser from './diagrams/user-journey/parser/journey';
 import journeyDb from './diagrams/user-journey/journeyDb';
 import journeyRenderer from './diagrams/user-journey/journeyRenderer';
-import configApi from './config';
-
-const themes = {};
-
-for (const themeName of ['default', 'forest', 'dark', 'neutral']) {
-  themes[themeName] = require(`./themes/${themeName}/index.scss`);
-}
+import * as configApi from './config';
+import getStyles from './styles';
+import theme from './themes';
 
 function parse(text) {
   const graphInit = utils.detectInit(text);
@@ -91,6 +96,10 @@ function parse(text) {
       parser.parser.yy = ganttDb;
       break;
     case 'class':
+      parser = classParser;
+      parser.parser.yy = classDb;
+      break;
+    case 'classDiagram':
       parser = classParser;
       parser.parser.yy = classDb;
       break;
@@ -197,16 +206,29 @@ export const decodeEntities = function(text) {
  * completed.
  */
 const render = function(id, _txt, cb, container) {
-  const cnf = getConfig();
-  // Check the maximum allowed text size
+  configApi.reset();
   let txt = _txt;
-  if (_txt.length > cnf.maxTextSize) {
-    txt = 'graph TB;a[Maximum text size in diagram exceeded];style a fill:#faa';
-  }
   const graphInit = utils.detectInit(txt);
   if (graphInit) {
-    reinitialize(graphInit);
-    assignWithDepth(cnf, getConfig());
+    configApi.addDirective(graphInit);
+  }
+  // else {
+  //   configApi.reset();
+  //   const siteConfig = configApi.getSiteConfig();
+  //   configApi.addDirective(siteConfig);
+  // }
+  // console.warn('Render fetching config');
+
+  const cnf = configApi.getConfig();
+  // console.warn('Render with config after adding new directives', cnf.sequence);
+  // console.warn(
+  //   'Render with config after adding new directives',
+  //   cnf.fontFamily,
+  //   cnf.themeVariables.fontFamily
+  // );
+  // Check the maximum allowed text size
+  if (_txt.length > cnf.maxTextSize) {
+    txt = 'graph TB;a[Maximum text size in diagram exceeded];style a fill:#faa';
   }
 
   if (typeof container !== 'undefined') {
@@ -251,51 +273,55 @@ const render = function(id, _txt, cb, container) {
   const svg = element.firstChild;
   const firstChild = svg.firstChild;
 
-  // pre-defined theme
-  let style = themes[cnf.theme];
-  if (style === undefined) {
-    style = '';
-  }
-
+  let userStyles = '';
   // user provided theme CSS
   if (cnf.themeCSS !== undefined) {
-    style += `\n${cnf.themeCSS}`;
+    userStyles += `\n${cnf.themeCSS}`;
   }
   // user provided theme CSS
   if (cnf.fontFamily !== undefined) {
-    style += `\n:root { --mermaid-font-family: ${cnf.fontFamily}}`;
+    userStyles += `\n:root { --mermaid-font-family: ${cnf.fontFamily}}`;
   }
   // user provided theme CSS
   if (cnf.altFontFamily !== undefined) {
-    style += `\n:root { --mermaid-alt-font-family: ${cnf.altFontFamily}}`;
+    userStyles += `\n:root { --mermaid-alt-font-family: ${cnf.altFontFamily}}`;
   }
 
   // classDef
-  if (graphType === 'flowchart' || graphType === 'flowchart-v2') {
+  if (graphType === 'flowchart' || graphType === 'flowchart-v2' || graphType === 'graph') {
     const classes = flowRenderer.getClasses(txt);
     for (const className in classes) {
-      style += `\n.${className} > * { ${classes[className].styles.join(
+      userStyles += `\n.${className} > * { ${classes[className].styles.join(
         ' !important; '
       )} !important; }`;
       if (classes[className].textStyles) {
-        style += `\n.${className} tspan { ${classes[className].textStyles.join(
+        userStyles += `\n.${className} tspan { ${classes[className].textStyles.join(
           ' !important; '
         )} !important; }`;
       }
     }
   }
 
+  // logger.warn(cnf.themeVariables);
+
+  const stylis = new Stylis();
+  const rules = stylis(`#${id}`, getStyles(graphType, userStyles, cnf.themeVariables));
+
   const style1 = document.createElement('style');
-  style1.innerHTML = scope(style, `#${id}`);
+  style1.innerHTML = rules;
   svg.insertBefore(style1, firstChild);
 
-  const style2 = document.createElement('style');
-  const cs = window.getComputedStyle(svg);
-  style2.innerHTML = `#${id} {
-    color: ${cs.color};
-    font: ${cs.font};
-  }`;
-  svg.insertBefore(style2, firstChild);
+  // Verify that the generated svgs are ok before removing this
+
+  // const style2 = document.createElement('style');
+  // const cs = window.getComputedStyle(svg);
+  // style2.innerHTML = `#d${id} * {
+  //   color: ${cs.color};
+  //   // font: ${cs.font};
+  //   // font-family: Arial;
+  //   // font-size: 24px;
+  // }`;
+  // svg.insertBefore(style2, firstChild);
 
   try {
     switch (graphType) {
@@ -337,6 +363,11 @@ const render = function(id, _txt, cb, container) {
         classRenderer.setConf(cnf.class);
         classRenderer.draw(txt, id);
         break;
+      case 'classDiagram':
+        cnf.class.arrowMarkerAbsolute = cnf.arrowMarkerAbsolute;
+        classRendererV2.setConf(cnf.class);
+        classRendererV2.draw(txt, id);
+        break;
       case 'state':
         cnf.class.arrowMarkerAbsolute = cnf.arrowMarkerAbsolute;
         stateRenderer.setConf(cnf.state);
@@ -354,7 +385,7 @@ const render = function(id, _txt, cb, container) {
         break;
       case 'pie':
         cnf.class.arrowMarkerAbsolute = cnf.arrowMarkerAbsolute;
-        pieRenderer.setConf(cnf.class);
+        pieRenderer.setConf(cnf.pie);
         pieRenderer.draw(txt, id, pkg.version);
         break;
       case 'er':
@@ -406,6 +437,7 @@ const render = function(id, _txt, cb, container) {
         cb(svgCode, ganttDb.bindFunctions);
         break;
       case 'class':
+      case 'classDiagram':
         cb(svgCode, classDb.bindFunctions);
         break;
       default:
@@ -427,7 +459,7 @@ const render = function(id, _txt, cb, container) {
 
 let currentDirective = {};
 
-const parseDirective = function(statement, context, type) {
+const parseDirective = function(p, statement, context, type) {
   try {
     if (statement !== undefined) {
       statement = statement.trim();
@@ -442,7 +474,7 @@ const parseDirective = function(statement, context, type) {
           currentDirective.args = JSON.parse(statement);
           break;
         case 'close_directive':
-          handleDirective(currentDirective, type);
+          handleDirective(p, currentDirective, type);
           currentDirective = null;
           break;
       }
@@ -455,7 +487,7 @@ const parseDirective = function(statement, context, type) {
   }
 };
 
-const handleDirective = function(directive, type) {
+const handleDirective = function(p, directive, type) {
   logger.debug(`Directive type=${directive.type} with args:`, directive.args);
   switch (directive.type) {
     case 'init':
@@ -471,21 +503,14 @@ const handleDirective = function(directive, type) {
       });
 
       reinitialize(directive.args);
+      configApi.addDirective(directive.args);
       break;
     }
     case 'wrap':
     case 'nowrap':
-      directive.args = { config: { wrap: directive.type === 'wrap' } };
-      ['config'].forEach(prop => {
-        if (typeof directive.args[prop] !== 'undefined') {
-          if (type === 'flowchart-v2') {
-            type = 'flowchart';
-          }
-          directive.args[type] = directive.args[prop];
-          delete directive.args[prop];
-        }
-      });
-      reinitialize(directive.args);
+      if (p && p['setWrap']) {
+        p.setWrap(directive.type === 'wrap');
+      }
       break;
     default:
       logger.warn(
@@ -517,58 +542,84 @@ function updateRendererConfigs(conf) {
   errorRenderer.setConf(conf.class);
 }
 
-function reinitialize(options) {
-  console.log(`mermaidAPI.reinitialize: v${pkg.version}`, options);
-  // Set default options
-  const config = typeof options === 'object' ? setConfig(options) : getSiteConfig();
-  updateRendererConfigs(config);
-  setLogLevel(config.logLevel);
-  logger.debug('mermaidAPI.reinitialize: ', config);
+function reinitialize() {
+  // `mermaidAPI.reinitialize: v${pkg.version}`,
+  //   JSON.stringify(options),
+  //   options.themeVariables.primaryColor;
+  // // if (options.theme && theme[options.theme]) {
+  // //   options.themeVariables = theme[options.theme].getThemeVariables(options.themeVariables);
+  // // }
+  // // Set default options
+  // const config =
+  //   typeof options === 'object' ? configApi.setConfig(options) : configApi.getSiteConfig();
+  // updateRendererConfigs(config);
+  // setLogLevel(config.logLevel);
+  // logger.debug('mermaidAPI.reinitialize: ', config);
 }
 
 function initialize(options) {
-  // console.log(`mermaidAPI.initialize: v${pkg.version}`);
+  // console.warn(`mermaidAPI.initialize: v${pkg.version} `, options);
+
+  // Handle legacy location of font-family configuration
+  if (options && options.fontFamily) {
+    if (!options.themeVariables) {
+      options.themeVariables = { fontFamily: options.fontFamily };
+    } else {
+      if (!options.themeVariables.fontFamily) {
+        options.themeVariables = { fontFamily: options.fontFamily };
+      }
+    }
+  }
   // Set default options
-  const config = typeof options === 'object' ? setSiteConfig(options) : getSiteConfig();
+  configApi.setSiteConfigDelta(options);
+
+  if (options && options.theme && theme[options.theme]) {
+    // Todo merge with user options
+    options.themeVariables = theme[options.theme].getThemeVariables(options.themeVariables);
+  } else {
+    if (options) options.themeVariables = theme.default.getThemeVariables(options.themeVariables);
+  }
+
+  const config =
+    typeof options === 'object' ? configApi.setSiteConfig(options) : configApi.getSiteConfig();
+
   updateRendererConfigs(config);
   setLogLevel(config.logLevel);
-  logger.debug('mermaidAPI.initialize: ', config);
+  // logger.debug('mermaidAPI.initialize: ', config);
 }
 
-// function getConfig () {
-//   console.warn('get config')
-//   return config
-// }
 const mermaidAPI = Object.freeze({
   render,
   parse,
   parseDirective,
   initialize,
   reinitialize,
-  getConfig,
-  getSiteConfig,
+  getConfig: configApi.getConfig,
+  setConfig: configApi.setConfig,
+  getSiteConfig: configApi.getSiteConfig,
+  updateSiteConfig: configApi.updateSiteConfig,
   reset: () => {
     // console.warn('reset');
     configApi.reset();
-    const siteConfig = getSiteConfig();
-    updateRendererConfigs(siteConfig);
+    // const siteConfig = configApi.getSiteConfig();
+    // updateRendererConfigs(siteConfig);
   },
   globalReset: () => {
     configApi.reset(configApi.defaultConfig);
-    updateRendererConfigs(getConfig());
+    updateRendererConfigs(configApi.getConfig());
   },
   defaultConfig: configApi.defaultConfig
 });
 
-setLogLevel(getConfig().logLevel);
-configApi.reset(getConfig());
+setLogLevel(configApi.getConfig().logLevel);
+configApi.reset(configApi.getConfig());
 
 export default mermaidAPI;
 /**
  * ## mermaidAPI configuration defaults
- * <pre>
  *
- * &lt;script>
+ * ```html
+ * <script>
  *   var config = {
  *     theme:'default',
  *     logLevel:'fatal',
@@ -576,7 +627,19 @@ export default mermaidAPI;
  *     startOnLoad:true,
  *     arrowMarkerAbsolute:false,
  *
+ *     er:{
+ *       diagramPadding:20,
+ *       layoutDirection:'TB',
+ *       minEntityWidth:100,
+ *       minEntityHeight:75,
+ *       entityPadding:15,
+ *       stroke:'gray',
+ *       fill:'honeydew',
+ *       fontSize:12,
+ *       useMaxWidth:true,
+ *     },
  *     flowchart:{
+ *       diagramPadding:8,
  *       htmlLabels:true,
  *       curve:'linear',
  *     },
@@ -611,6 +674,6 @@ export default mermaidAPI;
  *     }
  *   };
  *   mermaid.initialize(config);
- * &lt;/script>
- *</pre>
+ * </script>
+ * ```
  */

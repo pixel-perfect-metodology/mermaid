@@ -15,7 +15,7 @@ import {
 import { logger } from './logger';
 import { sanitizeUrl } from '@braintree/sanitize-url';
 import common from './diagrams/common/common';
-import cryptoRandomString from 'crypto-random-string';
+// import cryptoRandomString from 'crypto-random-string';
 
 // Effectively an enum of the supported curve types, accessible by name
 const d3CurveTypes = {
@@ -184,10 +184,13 @@ export const detectType = function(text) {
   if (text.match(/^\s*gantt/)) {
     return 'gantt';
   }
-
+  if (text.match(/^\s*classDiagram-v2/)) {
+    return 'classDiagram';
+  }
   if (text.match(/^\s*classDiagram/)) {
     return 'class';
   }
+
   if (text.match(/^\s*stateDiagram-v2/)) {
     return 'stateDiagram';
   }
@@ -331,6 +334,7 @@ const calcLabelPosition = points => {
 const calcCardinalityPosition = (isRelationTypePresent, points, initialPosition) => {
   let prevPoint;
   let totalDistance = 0; // eslint-disable-line
+  logger.info('our points', points);
   if (points[0] !== initialPosition) {
     points = points.reverse();
   }
@@ -343,7 +347,7 @@ const calcCardinalityPosition = (isRelationTypePresent, points, initialPosition)
   const distanceToCardinalityPoint = 25;
 
   let remainingDistance = distanceToCardinalityPoint;
-  let center = { x: 0, y: 0 };
+  let center;
   prevPoint = undefined;
   points.forEach(point => {
     if (prevPoint && !center) {
@@ -374,6 +378,77 @@ const calcCardinalityPosition = (isRelationTypePresent, points, initialPosition)
   //Calculation cardinality position using angle, center point on the line/curve but pendicular and with offset-distance
   cardinalityPosition.x = Math.sin(angle) * d + (points[0].x + center.x) / 2;
   cardinalityPosition.y = -Math.cos(angle) * d + (points[0].y + center.y) / 2;
+  return cardinalityPosition;
+};
+
+/**
+ * position ['start_left', 'start_right', 'end_left', 'end_right']
+ */
+const calcTerminalLabelPosition = (terminalMarkerSize, position, _points) => {
+  // Todo looking to faster cloning method
+  let points = JSON.parse(JSON.stringify(_points));
+  let prevPoint;
+  let totalDistance = 0; // eslint-disable-line
+  logger.info('our points', points);
+  if (position !== 'start_left' && position !== 'start_right') {
+    points = points.reverse();
+  }
+
+  points.forEach(point => {
+    totalDistance += distance(point, prevPoint);
+    prevPoint = point;
+  });
+
+  // Traverse only 25 total distance along points to find cardinality point
+  const distanceToCardinalityPoint = 25;
+
+  let remainingDistance = distanceToCardinalityPoint;
+  let center;
+  prevPoint = undefined;
+  points.forEach(point => {
+    if (prevPoint && !center) {
+      const vectorDistance = distance(point, prevPoint);
+      if (vectorDistance < remainingDistance) {
+        remainingDistance -= vectorDistance;
+      } else {
+        // The point is remainingDistance from prevPoint in the vector between prevPoint and point
+        // Calculate the coordinates
+        const distanceRatio = remainingDistance / vectorDistance;
+        if (distanceRatio <= 0) center = prevPoint;
+        if (distanceRatio >= 1) center = { x: point.x, y: point.y };
+        if (distanceRatio > 0 && distanceRatio < 1) {
+          center = {
+            x: (1 - distanceRatio) * prevPoint.x + distanceRatio * point.x,
+            y: (1 - distanceRatio) * prevPoint.y + distanceRatio * point.y
+          };
+        }
+      }
+    }
+    prevPoint = point;
+  });
+  // if relation is present (Arrows will be added), change cardinality point off-set distance (d)
+  let d = 10;
+  //Calculate Angle for x and y axis
+  let angle = Math.atan2(points[0].y - center.y, points[0].x - center.x);
+
+  let cardinalityPosition = { x: 0, y: 0 };
+
+  //Calculation cardinality position using angle, center point on the line/curve but pendicular and with offset-distance
+
+  cardinalityPosition.x = Math.sin(angle) * d + (points[0].x + center.x) / 2;
+  cardinalityPosition.y = -Math.cos(angle) * d + (points[0].y + center.y) / 2;
+  if (position === 'start_left') {
+    cardinalityPosition.x = Math.sin(angle + Math.PI) * d + (points[0].x + center.x) / 2;
+    cardinalityPosition.y = -Math.cos(angle + Math.PI) * d + (points[0].y + center.y) / 2;
+  }
+  if (position === 'end_right') {
+    cardinalityPosition.x = Math.sin(angle - Math.PI) * d + (points[0].x + center.x) / 2 - 5;
+    cardinalityPosition.y = -Math.cos(angle - Math.PI) * d + (points[0].y + center.y) / 2 - 5;
+  }
+  if (position === 'end_left') {
+    cardinalityPosition.x = Math.sin(angle) * d + (points[0].x + center.x) / 2 - 5;
+    cardinalityPosition.y = -Math.cos(angle) * d + (points[0].y + center.y) / 2 - 5;
+  }
   return cardinalityPosition;
 };
 
@@ -408,8 +483,18 @@ export const generateId = () => {
   );
 };
 
+function makeid(length) {
+  var result = '';
+  var characters = '0123456789abcdef';
+  var charactersLength = characters.length;
+  for (var i = 0; i < length; i++) {
+    result += characters.charAt(Math.floor(Math.random() * charactersLength));
+  }
+  return result;
+}
+
 export const random = options => {
-  return cryptoRandomString(options);
+  return makeid(options.length);
 };
 
 /**
@@ -442,6 +527,13 @@ export const assignWithDepth = function(dst, src, config) {
   const { depth, clobber } = Object.assign({ depth: 2, clobber: false }, config);
   if (Array.isArray(src) && !Array.isArray(dst)) {
     src.forEach(s => assignWithDepth(dst, s, config));
+    return dst;
+  } else if (Array.isArray(src) && Array.isArray(dst)) {
+    src.forEach(s => {
+      if (dst.indexOf(s) === -1) {
+        dst.push(s);
+      }
+    });
     return dst;
   }
   if (typeof dst === 'undefined' || depth <= 0) {
@@ -675,12 +767,37 @@ export const calculateTextDimensions = memoize(
   (text, config) => `${text}-${config.fontSize}-${config.fontWeight}-${config.fontFamily}`
 );
 
+const d3Attrs = function(d3Elem, attrs) {
+  for (let attr of attrs) {
+    d3Elem.attr(attr[0], attr[1]);
+  }
+};
+
+export const calculateSvgSizeAttrs = function(height, width, useMaxWidth) {
+  let attrs = new Map();
+  attrs.set('height', height);
+  if (useMaxWidth) {
+    attrs.set('width', '100%');
+    attrs.set('style', `max-width: ${width}px;`);
+  } else {
+    attrs.set('width', width);
+  }
+  return attrs;
+};
+
+export const configureSvgSize = function(svgElem, height, width, useMaxWidth) {
+  const attrs = calculateSvgSizeAttrs(height, width, useMaxWidth);
+  d3Attrs(svgElem, attrs);
+};
+
 export default {
   assignWithDepth,
   wrapLabel,
   calculateTextHeight,
   calculateTextWidth,
   calculateTextDimensions,
+  calculateSvgSizeAttrs,
+  configureSvgSize,
   detectInit,
   detectDirective,
   detectType,
@@ -688,6 +805,7 @@ export default {
   interpolateToCurve,
   calcLabelPosition,
   calcCardinalityPosition,
+  calcTerminalLabelPosition,
   formatUrl,
   getStylesFromArray,
   generateId,

@@ -1,13 +1,13 @@
 import { select } from 'd3';
-import { logger } from '../../logger'; // eslint-disable-line
 import utils from '../../utils';
-import { getConfig } from '../../config';
+import * as configApi from '../../config';
 import common from '../common/common';
+import mermaidAPI from '../../mermaidAPI';
+import { logger } from '../../logger';
 
-// const MERMAID_DOM_ID_PREFIX = 'mermaid-dom-id-';
-const MERMAID_DOM_ID_PREFIX = '';
-
-const config = getConfig();
+const MERMAID_DOM_ID_PREFIX = 'flowchart-';
+let vertexCounter = 0;
+let config = configApi.getConfig();
 let vertices = {};
 let edges = [];
 let classes = [];
@@ -17,8 +17,30 @@ let tooltips = {};
 let subCount = 0;
 let firstGraphFlag = true;
 let direction;
+
+let version; // As in graph
+
 // Functions to be run after graph rendering
 let funs = [];
+
+export const parseDirective = function(statement, context, type) {
+  mermaidAPI.parseDirective(this, statement, context, type);
+};
+
+/**
+ * Function to lookup domId from id in the graph definition.
+ * @param id
+ * @public
+ */
+export const lookUpDomId = function(id) {
+  const veritceKeys = Object.keys(vertices);
+  for (let i = 0; i < veritceKeys.length; i++) {
+    if (vertices[veritceKeys[i]].id === id) {
+      return vertices[veritceKeys[i]].domId;
+    }
+  }
+  return id;
+};
 
 /**
  * Function called by parser when a node definition has been found
@@ -38,12 +60,19 @@ export const addVertex = function(_id, text, type, style, classes) {
     return;
   }
 
-  if (id[0].match(/\d/)) id = MERMAID_DOM_ID_PREFIX + id;
+  // if (id[0].match(/\d/)) id = MERMAID_DOM_ID_PREFIX + id;
 
   if (typeof vertices[id] === 'undefined') {
-    vertices[id] = { id: id, styles: [], classes: [] };
+    vertices[id] = {
+      id: id,
+      domId: MERMAID_DOM_ID_PREFIX + id + '-' + vertexCounter,
+      styles: [],
+      classes: []
+    };
   }
+  vertexCounter++;
   if (typeof text !== 'undefined') {
+    config = configApi.getConfig();
     txt = common.sanitizeText(text.trim(), config);
 
     // strip quotes if string starts and ends with a quote
@@ -86,8 +115,8 @@ export const addVertex = function(_id, text, type, style, classes) {
 export const addSingleLink = function(_start, _end, type, linktext) {
   let start = _start;
   let end = _end;
-  if (start[0].match(/\d/)) start = MERMAID_DOM_ID_PREFIX + start;
-  if (end[0].match(/\d/)) end = MERMAID_DOM_ID_PREFIX + end;
+  // if (start[0].match(/\d/)) start = MERMAID_DOM_ID_PREFIX + start;
+  // if (end[0].match(/\d/)) end = MERMAID_DOM_ID_PREFIX + end;
   // logger.info('Got edge...', start, end);
 
   const edge = { start: start, end: end, type: undefined, text: '' };
@@ -105,6 +134,7 @@ export const addSingleLink = function(_start, _end, type, linktext) {
   if (typeof type !== 'undefined') {
     edge.type = type.type;
     edge.stroke = type.stroke;
+    edge.length = type.length;
   }
   edges.push(edge);
 };
@@ -196,8 +226,9 @@ export const setDirection = function(dir) {
  */
 export const setClass = function(ids, className) {
   ids.split(',').forEach(function(_id) {
+    // let id = version === 'gen-2' ? lookUpDomId(_id) : _id;
     let id = _id;
-    if (_id[0].match(/\d/)) id = MERMAID_DOM_ID_PREFIX + id;
+    // if (_id[0].match(/\d/)) id = MERMAID_DOM_ID_PREFIX + id;
     if (typeof vertices[id] !== 'undefined') {
       vertices[id].classes.push(className);
     }
@@ -211,23 +242,24 @@ export const setClass = function(ids, className) {
 const setTooltip = function(ids, tooltip) {
   ids.split(',').forEach(function(id) {
     if (typeof tooltip !== 'undefined') {
-      tooltips[id] = common.sanitizeText(tooltip, config);
+      tooltips[version === 'gen-1' ? lookUpDomId(id) : id] = common.sanitizeText(tooltip, config);
     }
   });
 };
 
-const setClickFun = function(_id, functionName) {
-  let id = _id;
-  if (_id[0].match(/\d/)) id = MERMAID_DOM_ID_PREFIX + id;
-  if (getConfig().securityLevel !== 'loose') {
+const setClickFun = function(id, functionName) {
+  let domId = lookUpDomId(id);
+  // if (_id[0].match(/\d/)) id = MERMAID_DOM_ID_PREFIX + id;
+  if (configApi.getConfig().securityLevel !== 'loose') {
     return;
   }
   if (typeof functionName === 'undefined') {
     return;
   }
   if (typeof vertices[id] !== 'undefined') {
+    vertices[id].haveCallback = true;
     funs.push(function() {
-      const elem = document.querySelector(`[id="${id}"]`);
+      const elem = document.querySelector(`[id="${domId}"]`);
       if (elem !== null) {
         elem.addEventListener(
           'click',
@@ -247,12 +279,11 @@ const setClickFun = function(_id, functionName) {
  * @param linkStr URL to create a link for
  * @param tooltip Tooltip for the clickable element
  */
-export const setLink = function(ids, linkStr, tooltip) {
-  ids.split(',').forEach(function(_id) {
-    let id = _id;
-    if (_id[0].match(/\d/)) id = MERMAID_DOM_ID_PREFIX + id;
+export const setLink = function(ids, linkStr, tooltip, target) {
+  ids.split(',').forEach(function(id) {
     if (typeof vertices[id] !== 'undefined') {
       vertices[id].link = utils.formatUrl(linkStr, config);
+      vertices[id].linkTarget = target;
     }
   });
   setTooltip(ids, tooltip);
@@ -355,7 +386,7 @@ funs.push(setupToolTips);
 /**
  * Clears the internal graph db so that a new graph can be parsed.
  */
-export const clear = function() {
+export const clear = function(ver) {
   vertices = {};
   classes = {};
   edges = [];
@@ -366,6 +397,10 @@ export const clear = function() {
   subCount = 0;
   tooltips = [];
   firstGraphFlag = true;
+  version = ver || 'gen-1';
+};
+export const setGen = ver => {
+  version = ver || 'gen-1';
 };
 /**
  *
@@ -404,16 +439,39 @@ export const addSubGraph = function(_id, list, _title) {
   let nodeList = [];
 
   nodeList = uniq(nodeList.concat.apply(nodeList, list));
-  for (let i = 0; i < nodeList.length; i++) {
-    if (nodeList[i][0].match(/\d/)) nodeList[i] = MERMAID_DOM_ID_PREFIX + nodeList[i];
+  if (version === 'gen-1') {
+    logger.warn('LOOKING UP');
+    for (let i = 0; i < nodeList.length; i++) {
+      nodeList[i] = lookUpDomId(nodeList[i]);
+    }
   }
 
   id = id || 'subGraph' + subCount;
-  if (id[0].match(/\d/)) id = MERMAID_DOM_ID_PREFIX + id;
+  // if (id[0].match(/\d/)) id = lookUpDomId(id);
   title = title || '';
   title = common.sanitizeText(title, config);
   subCount = subCount + 1;
   const subGraph = { id: id, nodes: nodeList, title: title.trim(), classes: [] };
+
+  console.log('Adding', subGraph.id, subGraph.nodes);
+
+  /**
+   * Deletes an id from all subgraphs
+   */
+  // const del = _id => {
+  //   subGraphs.forEach(sg => {
+  //     const pos = sg.nodes.indexOf(_id);
+  //     if (pos >= 0) {
+  //       sg.nodes.splice(pos, 1);
+  //     }
+  //   });
+  // };
+
+  // // Removes the members of this subgraph from any other subgraphs, a node only belong to one subgraph
+  // subGraph.nodes.forEach(_id => del(_id));
+
+  // Remove the members in the new subgraph if they already belong to another subgraph
+  subGraph.nodes = makeUniq(subGraph, subGraphs).nodes;
   subGraphs.push(subGraph);
   subGraphLookup[id] = subGraph;
   return id;
@@ -492,97 +550,92 @@ export const firstGraph = () => {
 };
 
 const destructStartLink = _str => {
-  const str = _str.trim();
+  let str = _str.trim();
+  let type = 'arrow_open';
 
-  switch (str) {
-    case '<--':
-      return { type: 'arrow_point', stroke: 'normal' };
-    case 'x--':
-      return { type: 'arrow_cross', stroke: 'normal' };
-    case 'o--':
-      return { type: 'arrow_circle', stroke: 'normal' };
-    case '<-.':
-      return { type: 'arrow_point', stroke: 'dotted' };
-    case 'x-.':
-      return { type: 'arrow_cross', stroke: 'dotted' };
-    case 'o-.':
-      return { type: 'arrow_circle', stroke: 'dotted' };
-    case '<==':
-      return { type: 'arrow_point', stroke: 'thick' };
-    case 'x==':
-      return { type: 'arrow_cross', stroke: 'thick' };
-    case 'o==':
-      return { type: 'arrow_circle', stroke: 'thick' };
-    case '--':
-      return { type: 'arrow_open', stroke: 'normal' };
-    case '==':
-      return { type: 'arrow_open', stroke: 'thick' };
-    case '-.':
-      return { type: 'arrow_open', stroke: 'dotted' };
+  switch (str[0]) {
+    case '<':
+      type = 'arrow_point';
+      str = str.slice(1);
+      break;
+    case 'x':
+      type = 'arrow_cross';
+      str = str.slice(1);
+      break;
+    case 'o':
+      type = 'arrow_circle';
+      str = str.slice(1);
+      break;
   }
+
+  let stroke = 'normal';
+
+  if (str.indexOf('=') !== -1) {
+    stroke = 'thick';
+  }
+
+  if (str.indexOf('.') !== -1) {
+    stroke = 'dotted';
+  }
+
+  return { type, stroke };
+};
+
+const countChar = (char, str) => {
+  const length = str.length;
+  let count = 0;
+  for (let i = 0; i < length; ++i) {
+    if (str[i] === char) {
+      ++count;
+    }
+  }
+  return count;
 };
 
 const destructEndLink = _str => {
   const str = _str.trim();
+  let line = str.slice(0, -1);
+  let type = 'arrow_open';
 
-  switch (str) {
-    case '--x':
-      return { type: 'arrow_cross', stroke: 'normal' };
-    case '-->':
-      return { type: 'arrow_point', stroke: 'normal' };
-    case '<-->':
-      return { type: 'double_arrow_point', stroke: 'normal' };
-    case 'x--x':
-      return { type: 'double_arrow_cross', stroke: 'normal' };
-    case 'o--o':
-      return { type: 'double_arrow_circle', stroke: 'normal' };
-    case 'o.-o':
-      return { type: 'double_arrow_circle', stroke: 'dotted' };
-    case '<==>':
-      return { type: 'double_arrow_point', stroke: 'thick' };
-    case 'o==o':
-      return { type: 'double_arrow_circle', stroke: 'thick' };
-    case 'x==x':
-      return { type: 'double_arrow_cross', stroke: 'thick' };
-    case 'x.-x':
-      return { type: 'double_arrow_cross', stroke: 'dotted' };
-    case 'x-.-x':
-      return { type: 'double_arrow_cross', stroke: 'dotted' };
-    case '<.->':
-      return { type: 'double_arrow_point', stroke: 'dotted' };
-    case '<-.->':
-      return { type: 'double_arrow_point', stroke: 'dotted' };
-    case 'o-.-o':
-      return { type: 'double_arrow_circle', stroke: 'dotted' };
-    case '--o':
-      return { type: 'arrow_circle', stroke: 'normal' };
-    case '---':
-      return { type: 'arrow_open', stroke: 'normal' };
-    case '-.-x':
-      return { type: 'arrow_cross', stroke: 'dotted' };
-    case '-.->':
-      return { type: 'arrow_point', stroke: 'dotted' };
-    case '-.-o':
-      return { type: 'arrow_circle', stroke: 'dotted' };
-    case '-.-':
-      return { type: 'arrow_open', stroke: 'dotted' };
-    case '.-x':
-      return { type: 'arrow_cross', stroke: 'dotted' };
-    case '.->':
-      return { type: 'arrow_point', stroke: 'dotted' };
-    case '.-o':
-      return { type: 'arrow_circle', stroke: 'dotted' };
-    case '.-':
-      return { type: 'arrow_open', stroke: 'dotted' };
-    case '==x':
-      return { type: 'arrow_cross', stroke: 'thick' };
-    case '==>':
-      return { type: 'arrow_point', stroke: 'thick' };
-    case '==o':
-      return { type: 'arrow_circle', stroke: 'thick' };
-    case '===':
-      return { type: 'arrow_open', stroke: 'thick' };
+  switch (str.slice(-1)) {
+    case 'x':
+      type = 'arrow_cross';
+      if (str[0] === 'x') {
+        type = 'double_' + type;
+        line = line.slice(1);
+      }
+      break;
+    case '>':
+      type = 'arrow_point';
+      if (str[0] === '<') {
+        type = 'double_' + type;
+        line = line.slice(1);
+      }
+      break;
+    case 'o':
+      type = 'arrow_circle';
+      if (str[0] === 'o') {
+        type = 'double_' + type;
+        line = line.slice(1);
+      }
+      break;
   }
+
+  let stroke = 'normal';
+  let length = line.length - 1;
+
+  if (line[0] === '=') {
+    stroke = 'thick';
+  }
+
+  let dots = countChar('.', line);
+
+  if (dots) {
+    stroke = 'dotted';
+    length = dots;
+  }
+
+  return { type, stroke, length };
 };
 
 const destructLink = (_str, _startStr) => {
@@ -596,7 +649,7 @@ const destructLink = (_str, _startStr) => {
     }
 
     if (startInfo.type === 'arrow_open') {
-      // -- xyz -->  - take arrow type form ending
+      // -- xyz -->  - take arrow type from ending
       startInfo.type = info.type;
     } else {
       // x-- xyz -->  - not supported
@@ -609,14 +662,42 @@ const destructLink = (_str, _startStr) => {
       startInfo.type = 'double_arrow_point';
     }
 
+    startInfo.length = info.length;
     return startInfo;
   }
 
   return info;
 };
 
+// Todo optimizer this by caching existing nodes
+const exists = (allSgs, _id) => {
+  let res = false;
+  allSgs.forEach(sg => {
+    const pos = sg.nodes.indexOf(_id);
+    if (pos >= 0) {
+      res = true;
+    }
+  });
+  return res;
+};
+/**
+ * Deletes an id from all subgraphs
+ */
+const makeUniq = (sg, allSubgraphs) => {
+  const res = [];
+  sg.nodes.forEach((_id, pos) => {
+    if (!exists(allSubgraphs, _id)) {
+      res.push(sg.nodes[pos]);
+    }
+  });
+  return { nodes: res };
+};
+
 export default {
+  parseDirective,
+  defaultConfig: () => configApi.defaultConfig.flowchart,
   addVertex,
+  lookUpDomId,
   addLink,
   updateLinkInterpolate,
   updateLink,
@@ -632,6 +713,7 @@ export default {
   getEdges,
   getClasses,
   clear,
+  setGen,
   defaultStyle,
   addSubGraph,
   getDepthFirstPos,
@@ -640,5 +722,7 @@ export default {
   destructLink,
   lex: {
     firstGraph
-  }
+  },
+  exists,
+  makeUniq
 };

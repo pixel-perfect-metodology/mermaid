@@ -1,13 +1,32 @@
-- Getting started
-
+- Overview 📚
   - [mermaid](README.md)
+  - [overview](n00b-overview.md)
+  - [Use-Cases and Integrations](integrations.md)
   - [FAQ](faq.md)
-  - [Usage](usage.md)
-  - [Examples](examples.md)
+
+- Getting Started✒️
+
+  - [Getting started - easier](n00b-gettingStarted.md)
+  - [Tutorials](Tutorials.md)
+  - [API-Usage](usage.md)
+  - [Configurations](Setup.md)
+  - [Directives](8.6.0_docs.md)
+  - [Theming](theming.md)
   - [mermaid CLI](mermaidCLI.md)
+  - [Advanced usage](n00b-advanced.md)
 
-- Diagrams
 
+- Contributions and Community 🙌
+
+  - [Development and Contribution ](development.md)
+  - [Mermaid Versions](versionUpdates.md)
+  - [Changelog](CHANGELOG.md)
+  - [Adding Diagrams ](newDiagram.md)
+
+- Diagrams and Syntax and Examples 📊
+
+  - [Diagram syntax intro](n00b-syntaxReference.md)
+  - [Examples](examples.md)
   - [Flowchart](flowchart.md)
   - [Sequence diagram](sequenceDiagram.md)
   - [Class Diagram](classDiagram.md)
@@ -16,16 +35,3 @@
   - [User Journey](user-journey.md)
   - [Gantt](gantt.md)
   - [Pie Chart](pie.md)
-  - [Directives](directives.md)
-
-- Guide
-
-  - [Development](development.md)
-  - [Setup](Setup.md)
-  - [Changelog](CHANGELOG.md)
-
-- I'm a n00b
-  - [overview](n00b-overview.md)
-  - [Getting started - easier](n00b-gettingStarted.md)
-  - [Diagram syntax intro](n00b-syntaxReference.md)
-  - [Advanced usage](n00b-advanced.md)

@@ -5,6 +5,7 @@ import { logger } from '../../logger';
 import classDb, { lookUpDomId } from './classDb';
 import { parser } from './parser/classDiagram';
 import svgDraw from './svgDraw';
+import { configureSvgSize } from '../../utils';
 
 parser.yy = classDb;
 
@@ -157,6 +158,7 @@ export const draw = function(text, id) {
 
   // Fetch the default direction, use TD if none was found
   const diagram = select(`[id='${id}']`);
+  diagram.attr('xmlns:xlink', 'http://www.w3.org/1999/xlink');
   insertMarkers(diagram);
 
   // Layout graph, Create a new directed graph
@@ -176,6 +178,7 @@ export const draw = function(text, id) {
 
   const classes = classDb.getClasses();
   const keys = Object.keys(classes);
+
   for (let i = 0; i < keys.length; i++) {
     const classDef = classes[keys[i]];
     const node = svgDraw.drawClass(diagram, classDef, conf);
@@ -230,13 +233,7 @@ export const draw = function(text, id) {
   const width = svgBounds.width + padding * 2;
   const height = svgBounds.height + padding * 2;
 
-  if (conf.useMaxWidth) {
-    diagram.attr('width', '100%');
-    diagram.attr('style', `max-width: ${width}px;`);
-  } else {
-    diagram.attr('height', height);
-    diagram.attr('width', width);
-  }
+  configureSvgSize(diagram, height, width, conf.useMaxWidth);
 
   // Ensure the viewBox includes the whole svgBounds area with extra space for padding
   const vBox = `${svgBounds.x - padding} ${svgBounds.y - padding} ${width} ${height}`;

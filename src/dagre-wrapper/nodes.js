@@ -1,10 +1,11 @@
-import intersect from './intersect/index.js';
 import { select } from 'd3';
 import { logger } from '../logger'; // eslint-disable-line
 import { labelHelper, updateNodeBounds, insertPolygonShape } from './shapes/util';
 import { getConfig } from '../config';
+import intersect from './intersect/index.js';
 import createLabel from './createLabel';
 import note from './shapes/note';
+import { parseMember } from '../diagrams/class/svgDraw';
 
 const question = (parent, node) => {
   const { shapeSvg, bbox } = labelHelper(parent, node, undefined, true);
@@ -260,6 +261,7 @@ const rect = (parent, node) => {
 
   rect
     .attr('class', 'basic label-container')
+    .attr('style', node.style)
     .attr('rx', node.rx)
     .attr('ry', node.ry)
     .attr('x', -bbox.width / 2 - halfPadding)
@@ -288,7 +290,7 @@ const rectWithTitle = (parent, node) => {
   const shapeSvg = parent
     .insert('g')
     .attr('class', classes)
-    .attr('id', node.id);
+    .attr('id', node.domId || node.id);
 
   // Create the title label and insert it after the rect
   const rect = shapeSvg.insert('rect', ':first-child');
@@ -457,7 +459,7 @@ const start = (parent, node) => {
   const shapeSvg = parent
     .insert('g')
     .attr('class', 'node default')
-    .attr('id', node.id);
+    .attr('id', node.domId || node.id);
   const circle = shapeSvg.insert('circle', ':first-child');
 
   // center the circle around its coordinate
@@ -480,7 +482,7 @@ const forkJoin = (parent, node, dir) => {
   const shapeSvg = parent
     .insert('g')
     .attr('class', 'node default')
-    .attr('id', node.id);
+    .attr('id', node.domId || node.id);
 
   let width = 70;
   let height = 10;
@@ -514,7 +516,7 @@ const end = (parent, node) => {
   const shapeSvg = parent
     .insert('g')
     .attr('class', 'node default')
-    .attr('id', node.id);
+    .attr('id', node.domId || node.id);
   const innerCircle = shapeSvg.insert('circle', ':first-child');
   const circle = shapeSvg.insert('circle', ':first-child');
 
@@ -539,6 +541,262 @@ const end = (parent, node) => {
   return shapeSvg;
 };
 
+const class_box = (parent, node) => {
+  const halfPadding = node.padding / 2;
+  const rowPadding = 4;
+  const lineHeight = 8;
+
+  let classes;
+  if (!node.classes) {
+    classes = 'node default';
+  } else {
+    classes = 'node ' + node.classes;
+  }
+  // Add outer g element
+  const shapeSvg = parent
+    .insert('g')
+    .attr('class', classes)
+    .attr('id', node.domId || node.id);
+
+  // Create the title label and insert it after the rect
+  const rect = shapeSvg.insert('rect', ':first-child');
+  const topLine = shapeSvg.insert('line');
+  const bottomLine = shapeSvg.insert('line');
+  let maxWidth = 0;
+  let maxHeight = rowPadding;
+
+  const labelContainer = shapeSvg.insert('g').attr('class', 'label');
+  let verticalPos = 0;
+  const hasInterface = node.classData.annotations && node.classData.annotations[0];
+
+  // 1. Create the labels
+  const interfaceLabelText = node.classData.annotations[0]
+    ? '«' + node.classData.annotations[0] + '»'
+    : '';
+  const interfaceLabel = labelContainer
+    .node()
+    .appendChild(createLabel(interfaceLabelText, node.labelStyle, true, true));
+  let interfaceBBox = interfaceLabel.getBBox();
+  if (getConfig().flowchart.htmlLabels) {
+    const div = interfaceLabel.children[0];
+    const dv = select(interfaceLabel);
+    interfaceBBox = div.getBoundingClientRect();
+    dv.attr('width', interfaceBBox.width);
+    dv.attr('height', interfaceBBox.height);
+  }
+  if (node.classData.annotations[0]) {
+    maxHeight += interfaceBBox.height + rowPadding;
+    maxWidth += interfaceBBox.width;
+  }
+
+  let classTitleString = node.classData.id;
+
+  if (node.classData.type !== undefined && node.classData.type !== '') {
+    classTitleString += '<' + node.classData.type + '>';
+  }
+  const classTitleLabel = labelContainer
+    .node()
+    .appendChild(createLabel(classTitleString, node.labelStyle, true, true));
+  select(classTitleLabel).attr('class', 'classTitle');
+  let classTitleBBox = classTitleLabel.getBBox();
+  if (getConfig().flowchart.htmlLabels) {
+    const div = classTitleLabel.children[0];
+    const dv = select(classTitleLabel);
+    classTitleBBox = div.getBoundingClientRect();
+    dv.attr('width', classTitleBBox.width);
+    dv.attr('height', classTitleBBox.height);
+  }
+  maxHeight += classTitleBBox.height + rowPadding;
+  if (classTitleBBox.width > maxWidth) {
+    maxWidth = classTitleBBox.width;
+  }
+  const classAttributes = [];
+  node.classData.members.forEach(str => {
+    const parsedText = parseMember(str).displayText;
+    const lbl = labelContainer
+      .node()
+      .appendChild(createLabel(parsedText, node.labelStyle, true, true));
+    let bbox = lbl.getBBox();
+    if (getConfig().flowchart.htmlLabels) {
+      const div = lbl.children[0];
+      const dv = select(lbl);
+      bbox = div.getBoundingClientRect();
+      dv.attr('width', bbox.width);
+      dv.attr('height', bbox.height);
+    }
+    if (bbox.width > maxWidth) {
+      maxWidth = bbox.width;
+    }
+    maxHeight += bbox.height + rowPadding;
+    classAttributes.push(lbl);
+  });
+
+  maxHeight += lineHeight;
+
+  const classMethods = [];
+  node.classData.methods.forEach(str => {
+    const parsedText = parseMember(str).displayText;
+    const lbl = labelContainer
+      .node()
+      .appendChild(createLabel(parsedText, node.labelStyle, true, true));
+    let bbox = lbl.getBBox();
+    if (getConfig().flowchart.htmlLabels) {
+      const div = lbl.children[0];
+      const dv = select(lbl);
+      bbox = div.getBoundingClientRect();
+      dv.attr('width', bbox.width);
+      dv.attr('height', bbox.height);
+    }
+    if (bbox.width > maxWidth) {
+      maxWidth = bbox.width;
+    }
+    maxHeight += bbox.height + rowPadding;
+
+    classMethods.push(lbl);
+  });
+
+  maxHeight += lineHeight;
+
+  // 2. Position the labels
+
+  // position the interface label
+  if (hasInterface) {
+    let diffX = (maxWidth - interfaceBBox.width) / 2;
+    select(interfaceLabel).attr(
+      'transform',
+      'translate( ' + ((-1 * maxWidth) / 2 + diffX) + ', ' + (-1 * maxHeight) / 2 + ')'
+    );
+    verticalPos = interfaceBBox.height + rowPadding;
+  }
+  // Positin the class title label
+  let diffX = (maxWidth - classTitleBBox.width) / 2;
+  select(classTitleLabel).attr(
+    'transform',
+    'translate( ' +
+      ((-1 * maxWidth) / 2 + diffX) +
+      ', ' +
+      ((-1 * maxHeight) / 2 + verticalPos) +
+      ')'
+  );
+  verticalPos += classTitleBBox.height + rowPadding;
+
+  topLine
+    .attr('class', 'divider')
+    .attr('x1', -maxWidth / 2 - halfPadding)
+    .attr('x2', maxWidth / 2 + halfPadding)
+    .attr('y1', -maxHeight / 2 - halfPadding + lineHeight + verticalPos)
+    .attr('y2', -maxHeight / 2 - halfPadding + lineHeight + verticalPos);
+
+  verticalPos += lineHeight;
+
+  classAttributes.forEach(lbl => {
+    select(lbl).attr(
+      'transform',
+      'translate( ' +
+        -maxWidth / 2 +
+        ', ' +
+        ((-1 * maxHeight) / 2 + verticalPos + lineHeight / 2) +
+        ')'
+    );
+    verticalPos += classTitleBBox.height + rowPadding;
+  });
+
+  verticalPos += lineHeight;
+  bottomLine
+    .attr('class', 'divider')
+    .attr('x1', -maxWidth / 2 - halfPadding)
+    .attr('x2', maxWidth / 2 + halfPadding)
+    .attr('y1', -maxHeight / 2 - halfPadding + lineHeight + verticalPos)
+    .attr('y2', -maxHeight / 2 - halfPadding + lineHeight + verticalPos);
+
+  verticalPos += lineHeight;
+
+  classMethods.forEach(lbl => {
+    select(lbl).attr(
+      'transform',
+      'translate( ' + -maxWidth / 2 + ', ' + ((-1 * maxHeight) / 2 + verticalPos) + ')'
+    );
+    verticalPos += classTitleBBox.height + rowPadding;
+  });
+  //
+  // let bbox;
+  // if (getConfig().flowchart.htmlLabels) {
+  //   const div = interfaceLabel.children[0];
+  //   const dv = select(interfaceLabel);
+  //   bbox = div.getBoundingClientRect();
+  //   dv.attr('width', bbox.width);
+  //   dv.attr('height', bbox.height);
+  // }
+  // bbox = labelContainer.getBBox();
+
+  // logger.info('Text 2', text2);
+  // const textRows = text2.slice(1, text2.length);
+  // let titleBox = text.getBBox();
+  // const descr = label
+  //   .node()
+  //   .appendChild(createLabel(textRows.join('<br/>'), node.labelStyle, true, true));
+
+  // if (getConfig().flowchart.htmlLabels) {
+  //   const div = descr.children[0];
+  //   const dv = select(descr);
+  //   bbox = div.getBoundingClientRect();
+  //   dv.attr('width', bbox.width);
+  //   dv.attr('height', bbox.height);
+  // }
+  // // bbox = label.getBBox();
+  // // logger.info(descr);
+  // select(descr).attr(
+  //   'transform',
+  //   'translate( ' +
+  //     // (titleBox.width - bbox.width) / 2 +
+  //     (bbox.width > titleBox.width ? 0 : (titleBox.width - bbox.width) / 2) +
+  //     ', ' +
+  //     (titleBox.height + halfPadding + 5) +
+  //     ')'
+  // );
+  // select(text).attr(
+  //   'transform',
+  //   'translate( ' +
+  //     // (titleBox.width - bbox.width) / 2 +
+  //     (bbox.width < titleBox.width ? 0 : -(titleBox.width - bbox.width) / 2) +
+  //     ', ' +
+  //     0 +
+  //     ')'
+  // );
+  // // Get the size of the label
+
+  // // Bounding box for title and text
+  // bbox = label.node().getBBox();
+
+  // // Center the label
+  // label.attr(
+  //   'transform',
+  //   'translate(' + -bbox.width / 2 + ', ' + (-bbox.height / 2 - halfPadding + 3) + ')'
+  // );
+
+  rect
+    .attr('class', 'outer title-state')
+    .attr('x', -maxWidth / 2 - halfPadding)
+    .attr('y', -(maxHeight / 2) - halfPadding)
+    .attr('width', maxWidth + node.padding)
+    .attr('height', maxHeight + node.padding);
+
+  // innerLine
+  //   .attr('class', 'divider')
+  //   .attr('x1', -bbox.width / 2 - halfPadding)
+  //   .attr('x2', bbox.width / 2 + halfPadding)
+  //   .attr('y1', -bbox.height / 2 - halfPadding + titleBox.height + halfPadding)
+  //   .attr('y2', -bbox.height / 2 - halfPadding + titleBox.height + halfPadding);
+
+  updateNodeBounds(node, rect);
+
+  node.intersect = function(point) {
+    return intersect.rect(node, point);
+  };
+
+  return shapeSvg;
+};
+
 const shapes = {
   question,
   rect,
@@ -558,13 +816,39 @@ const shapes = {
   note,
   subroutine,
   fork: forkJoin,
-  join: forkJoin
+  join: forkJoin,
+  class_box
 };
 
 let nodeElems = {};
 
 export const insertNode = (elem, node, dir) => {
-  nodeElems[node.id] = shapes[node.shape](elem, node, dir);
+  let newEl;
+  let el;
+
+  // Add link when appropriate
+  if (node.link) {
+    newEl = elem
+      .insert('svg:a')
+      .attr('xlink:href', node.link)
+      .attr('target', node.linkTarget || '_blank');
+    el = shapes[node.shape](newEl, node, dir);
+  } else {
+    el = shapes[node.shape](elem, node, dir);
+    newEl = el;
+  }
+  if (node.tooltip) {
+    el.attr('title', node.tooltip);
+  }
+  if (node.class) {
+    el.attr('class', 'node default ' + node.class);
+  }
+
+  nodeElems[node.id] = newEl;
+
+  if (node.haveCallback) {
+    nodeElems[node.id].attr('class', nodeElems[node.id].attr('class') + ' clickable');
+  }
 };
 export const setNodeElem = (elem, node) => {
   nodeElems[node.id] = elem;

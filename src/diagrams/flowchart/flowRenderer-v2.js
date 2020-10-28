@@ -9,7 +9,7 @@ import { render } from '../../dagre-wrapper/index.js';
 import addHtmlLabel from 'dagre-d3/lib/label/add-html-label.js';
 import { logger } from '../../logger';
 import common from '../common/common';
-import { interpolateToCurve, getStylesFromArray } from '../../utils';
+import { interpolateToCurve, getStylesFromArray, configureSvgSize } from '../../utils';
 
 const conf = {};
 export const setConf = function(cnf) {
@@ -141,6 +141,11 @@ export const addVertices = function(vert, g, svgId) {
       class: classStr,
       style: styles.style,
       id: vertex.id,
+      link: vertex.link,
+      linkTarget: vertex.linkTarget,
+      tooltip: flowDb.getTooltip(vertex.id) || '',
+      domId: flowDb.lookUpDomId(vertex.id),
+      haveCallback: vertex.haveCallback,
       width: vertex.type === 'group' ? 500 : undefined,
       type: vertex.type,
       padding: getConfig().flowchart.padding
@@ -155,6 +160,7 @@ export const addVertices = function(vert, g, svgId) {
       class: classStr,
       style: styles.style,
       id: vertex.id,
+      domId: flowDb.lookUpDomId(vertex.id),
       width: vertex.type === 'group' ? 500 : undefined,
       type: vertex.type,
       padding: getConfig().flowchart.padding
@@ -187,7 +193,8 @@ export const addEdges = function(edges, g) {
     var linkNameStart = 'LS-' + edge.start;
     var linkNameEnd = 'LE-' + edge.end;
 
-    const edgeData = {};
+    const edgeData = { style: '', labelStyle: '' };
+    edgeData.minlen = edge.length || 1;
     //edgeData.id = 'id' + cnt;
 
     // Set link type for rendering
@@ -197,42 +204,63 @@ export const addEdges = function(edges, g) {
       edgeData.arrowhead = 'normal';
     }
 
-    logger.info(edgeData, edge);
-    edgeData.arrowType = edge.type;
+    // Check of arrow types, placed here in order not to break old rendering
+    edgeData.arrowTypeStart = 'arrow_open';
+    edgeData.arrowTypeEnd = 'arrow_open';
+
+    /* eslint-disable no-fallthrough */
+    switch (edge.type) {
+      case 'double_arrow_cross':
+        edgeData.arrowTypeStart = 'arrow_cross';
+      case 'arrow_cross':
+        edgeData.arrowTypeEnd = 'arrow_cross';
+        break;
+      case 'double_arrow_point':
+        edgeData.arrowTypeStart = 'arrow_point';
+      case 'arrow_point':
+        edgeData.arrowTypeEnd = 'arrow_point';
+        break;
+      case 'double_arrow_circle':
+        edgeData.arrowTypeStart = 'arrow_circle';
+      case 'arrow_circle':
+        edgeData.arrowTypeEnd = 'arrow_circle';
+        break;
+    }
 
     let style = '';
     let labelStyle = '';
 
+    switch (edge.stroke) {
+      case 'normal':
+        style = 'fill:none;';
+        if (typeof defaultStyle !== 'undefined') {
+          style = defaultStyle;
+        }
+        if (typeof defaultLabelStyle !== 'undefined') {
+          labelStyle = defaultLabelStyle;
+        }
+        edgeData.thickness = 'normal';
+        edgeData.pattern = 'solid';
+        break;
+      case 'dotted':
+        edgeData.thickness = 'normal';
+        edgeData.pattern = 'dotted';
+        edgeData.style = 'fill:none;stroke-width:2px;stroke-dasharray:3;';
+        break;
+      case 'thick':
+        edgeData.thickness = 'thick';
+        edgeData.pattern = 'solid';
+        edgeData.style = 'stroke-width: 3.5px;fill:none;';
+        break;
+    }
     if (typeof edge.style !== 'undefined') {
       const styles = getStylesFromArray(edge.style);
       style = styles.style;
       labelStyle = styles.labelStyle;
-    } else {
-      switch (edge.stroke) {
-        case 'normal':
-          style = 'fill:none';
-          if (typeof defaultStyle !== 'undefined') {
-            style = defaultStyle;
-          }
-          if (typeof defaultLabelStyle !== 'undefined') {
-            labelStyle = defaultLabelStyle;
-          }
-          edgeData.thickness = 'normal';
-          edgeData.pattern = 'solid';
-          break;
-        case 'dotted':
-          edgeData.thickness = 'normal';
-          edgeData.pattern = 'dotted';
-          break;
-        case 'thick':
-          edgeData.thickness = 'thick';
-          edgeData.pattern = 'solid';
-          break;
-      }
     }
 
-    edgeData.style = style;
-    edgeData.labelStyle = labelStyle;
+    edgeData.style = edgeData.style += style;
+    edgeData.labelStyle = edgeData.labelStyle += labelStyle;
 
     if (typeof edge.interpolate !== 'undefined') {
       edgeData.curve = interpolateToCurve(edge.interpolate, curveLinear);
@@ -249,21 +277,21 @@ export const addEdges = function(edges, g) {
     } else {
       edgeData.arrowheadStyle = 'fill: #333';
       edgeData.labelpos = 'c';
-
-      if (getConfig().flowchart.htmlLabels && false) { // eslint-disable-line
-        edgeData.labelType = 'html';
-        edgeData.label = `<span id="L-${linkId}" class="edgeLabel L-${linkNameStart}' L-${linkNameEnd}">${edge.text}</span>`;
-      } else {
-        edgeData.labelType = 'text';
-        edgeData.label = edge.text.replace(common.lineBreakRegex, '\n');
-
-        if (typeof edge.style === 'undefined') {
-          edgeData.style = edgeData.style || 'stroke: #333; stroke-width: 1.5px;fill:none';
-        }
-
-        edgeData.labelStyle = edgeData.labelStyle.replace('color:', 'fill:');
-      }
     }
+    // if (getConfig().flowchart.htmlLabels && false) {
+    //   // eslint-disable-line
+    //   edgeData.labelType = 'html';
+    //   edgeData.label = `<span id="L-${linkId}" class="edgeLabel L-${linkNameStart}' L-${linkNameEnd}">${edge.text}</span>`;
+    // } else {
+    edgeData.labelType = 'text';
+    edgeData.label = edge.text.replace(common.lineBreakRegex, '\n');
+
+    if (typeof edge.style === 'undefined') {
+      edgeData.style = edgeData.style || 'stroke: #333; stroke-width: 1.5px;fill:none;';
+    }
+
+    edgeData.labelStyle = edgeData.labelStyle.replace('color:', 'fill:');
+    // }
 
     edgeData.id = linkId;
     edgeData.classes = 'flowchart-link ' + linkNameStart + ' ' + linkNameEnd;
@@ -302,6 +330,7 @@ export const getClasses = function(text) {
 export const draw = function(text, id) {
   logger.info('Drawing flowchart');
   flowDb.clear();
+  flowDb.setGen('gen-2');
   const parser = flow.parser;
   parser.yy = flowDb;
 
@@ -355,11 +384,13 @@ export const draw = function(text, id) {
   logger.info(edges);
   let i = 0;
   for (i = subGraphs.length - 1; i >= 0; i--) {
+    // for (let i = 0; i < subGraphs.length; i++) {
     subG = subGraphs[i];
 
     selectAll('cluster').append('text');
 
     for (let j = 0; j < subG.nodes.length; j++) {
+      logger.info('Setting up subgraphs', subG.nodes[j], subG.id);
       g.setParent(subG.nodes[j], subG.id);
     }
   }
@@ -371,17 +402,13 @@ export const draw = function(text, id) {
 
   // Set up an SVG group so that we can translate the final graph.
   const svg = select(`[id="${id}"]`);
+  svg.attr('xmlns:xlink', 'http://www.w3.org/1999/xlink');
 
   // Run the renderer. This is what draws the final graph.
   const element = select('#' + id + ' g');
   render(element, g, ['point', 'circle', 'cross'], 'flowchart', id);
-  // dagre.layout(g);
 
-  element.selectAll('g.node').attr('title', function() {
-    return flowDb.getTooltip(this.id);
-  });
-
-  const padding = 8;
+  const padding = conf.diagramPadding;
   const svgBounds = svg.node().getBBox();
   const width = svgBounds.width + padding * 2;
   const height = svgBounds.height + padding * 2;
@@ -390,13 +417,7 @@ export const draw = function(text, id) {
     `translate(${padding - g._label.marginx}, ${padding - g._label.marginy})`
   );
 
-  if (conf.useMaxWidth) {
-    svg.attr('width', '100%');
-    svg.attr('style', `max-width: ${width}px;`);
-  } else {
-    svg.attr('height', height);
-    svg.attr('width', width);
-  }
+  configureSvgSize(svg, height, width, conf.useMaxWidth);
 
   svg.attr('viewBox', `0 0 ${width} ${height}`);
   svg
@@ -405,28 +426,6 @@ export const draw = function(text, id) {
 
   // Index nodes
   flowDb.indexNodes('subGraph' + i);
-
-  // // reposition labels
-  // for (i = 0; i < subGraphs.length; i++) {
-  //   subG = subGraphs[i];
-
-  //   if (subG.title !== 'undefined') {
-  //     const clusterRects = document.querySelectorAll('#' + id + ' [id="' + subG.id + '"] rect');
-  //     const clusterEl = document.querySelectorAll('#' + id + ' [id="' + subG.id + '"]');
-
-  //     const xPos = clusterRects[0].x.baseVal.value;
-  //     const yPos = clusterRects[0].y.baseVal.value;
-  //     const width = clusterRects[0].width.baseVal.value;
-  //     const cluster = d3.select(clusterEl[0]);
-  //     const te = cluster.select('.label');
-  //     te.attr('transform', `translate(${xPos + width / 2}, ${yPos + 14})`);
-  //     te.attr('id', id + 'Text');
-
-  //     for (let j = 0; j < subG.classes.length; j++) {
-  //       clusterEl[0].classList.add(subG.classes[j]);
-  //     }
-  //   }
-  // }
 
   // Add label rects for non html labels
   if (!conf.htmlLabels) {
@@ -442,7 +441,7 @@ export const draw = function(text, id) {
       rect.setAttribute('ry', 0);
       rect.setAttribute('width', dim.width);
       rect.setAttribute('height', dim.height);
-      rect.setAttribute('style', 'fill:#e8e8e8;');
+      // rect.setAttribute('style', 'fill:#e8e8e8;');
 
       label.insertBefore(rect, label.firstChild);
     }
@@ -460,6 +459,9 @@ export const draw = function(text, id) {
         link.setAttributeNS('http://www.w3.org/2000/svg', 'class', vertex.classes.join(' '));
         link.setAttributeNS('http://www.w3.org/2000/svg', 'href', vertex.link);
         link.setAttributeNS('http://www.w3.org/2000/svg', 'rel', 'noopener');
+        if (vertex.linkTarget) {
+          link.setAttributeNS('http://www.w3.org/2000/svg', 'target', vertex.linkTarget);
+        }
 
         const linkNode = node.insert(function() {
           return link;

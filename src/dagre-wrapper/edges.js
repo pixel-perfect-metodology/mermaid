@@ -6,9 +6,11 @@ import utils from '../utils';
 // import { calcLabelPosition } from '../utils';
 
 let edgeLabels = {};
+let terminalLabels = {};
 
 export const clear = () => {
   edgeLabels = {};
+  terminalLabels = {};
 };
 
 export const insertEdgeLabel = (elem, edge) => {
@@ -39,17 +41,129 @@ export const insertEdgeLabel = (elem, edge) => {
   // Update the abstract data of the edge with the new information about its width and height
   edge.width = bbox.width;
   edge.height = bbox.height;
+
+  if (edge.startLabelLeft) {
+    // Create the actual text element
+    const startLabelElement = createLabel(edge.startLabelLeft, edge.labelStyle);
+    const startEdgeLabelLeft = elem.insert('g').attr('class', 'edgeTerminals');
+    const inner = startEdgeLabelLeft.insert('g').attr('class', 'inner');
+    inner.node().appendChild(startLabelElement);
+    const slBox = startLabelElement.getBBox();
+    inner.attr('transform', 'translate(' + -slBox.width / 2 + ', ' + -slBox.height / 2 + ')');
+    if (!terminalLabels[edge.id]) {
+      terminalLabels[edge.id] = {};
+    }
+    terminalLabels[edge.id].startLeft = startEdgeLabelLeft;
+  }
+  if (edge.startLabelRight) {
+    // Create the actual text element
+    const startLabelElement = createLabel(edge.startLabelRight, edge.labelStyle);
+    const startEdgeLabelRight = elem.insert('g').attr('class', 'edgeTerminals');
+    const inner = startEdgeLabelRight.insert('g').attr('class', 'inner');
+    startEdgeLabelRight.node().appendChild(startLabelElement);
+    inner.node().appendChild(startLabelElement);
+    const slBox = startLabelElement.getBBox();
+    inner.attr('transform', 'translate(' + -slBox.width / 2 + ', ' + -slBox.height / 2 + ')');
+
+    if (!terminalLabels[edge.id]) {
+      terminalLabels[edge.id] = {};
+    }
+    terminalLabels[edge.id].startRight = startEdgeLabelRight;
+  }
+  if (edge.endLabelLeft) {
+    // Create the actual text element
+    const endLabelElement = createLabel(edge.endLabelLeft, edge.labelStyle);
+    const endEdgeLabelLeft = elem.insert('g').attr('class', 'edgeTerminals');
+    const inner = endEdgeLabelLeft.insert('g').attr('class', 'inner');
+    inner.node().appendChild(endLabelElement);
+    const slBox = endLabelElement.getBBox();
+    inner.attr('transform', 'translate(' + -slBox.width / 2 + ', ' + -slBox.height / 2 + ')');
+
+    endEdgeLabelLeft.node().appendChild(endLabelElement);
+    if (!terminalLabels[edge.id]) {
+      terminalLabels[edge.id] = {};
+    }
+    terminalLabels[edge.id].endLeft = endEdgeLabelLeft;
+  }
+  if (edge.endLabelRight) {
+    // Create the actual text element
+    const endLabelElement = createLabel(edge.endLabelRight, edge.labelStyle);
+    const endEdgeLabelRight = elem.insert('g').attr('class', 'edgeTerminals');
+    const inner = endEdgeLabelRight.insert('g').attr('class', 'inner');
+
+    inner.node().appendChild(endLabelElement);
+    const slBox = endLabelElement.getBBox();
+    inner.attr('transform', 'translate(' + -slBox.width / 2 + ', ' + -slBox.height / 2 + ')');
+
+    endEdgeLabelRight.node().appendChild(endLabelElement);
+    if (!terminalLabels[edge.id]) {
+      terminalLabels[edge.id] = {};
+    }
+    terminalLabels[edge.id].endRight = endEdgeLabelRight;
+  }
 };
 
-export const positionEdgeLabel = (edge, points) => {
+export const positionEdgeLabel = (edge, paths) => {
   logger.info('Moving label', edge.id, edge.label, edgeLabels[edge.id]);
+  let path = paths.updatedPath ? paths.updatedPath : paths.originalPath;
   if (edge.label) {
     const el = edgeLabels[edge.id];
     let x = edge.x;
     let y = edge.y;
-    if (points) {
+    if (path) {
+      //   // debugger;
+      const pos = utils.calcLabelPosition(path);
+      logger.info('Moving label from (', x, ',', y, ') to (', pos.x, ',', pos.y, ')');
+      // x = pos.x;
+      // y = pos.y;
+    }
+    el.attr('transform', 'translate(' + x + ', ' + y + ')');
+  }
+
+  //let path = paths.updatedPath ? paths.updatedPath : paths.originalPath;
+  if (edge.startLabelLeft) {
+    const el = terminalLabels[edge.id].startLeft;
+    let x = edge.x;
+    let y = edge.y;
+    if (path) {
       // debugger;
-      const pos = utils.calcLabelPosition(points);
+      const pos = utils.calcTerminalLabelPosition(0, 'start_left', path);
+      x = pos.x;
+      y = pos.y;
+    }
+    el.attr('transform', 'translate(' + x + ', ' + y + ')');
+  }
+  if (edge.startLabelRight) {
+    const el = terminalLabels[edge.id].startRight;
+    let x = edge.x;
+    let y = edge.y;
+    if (path) {
+      // debugger;
+      const pos = utils.calcTerminalLabelPosition(0, 'start_right', path);
+      x = pos.x;
+      y = pos.y;
+    }
+    el.attr('transform', 'translate(' + x + ', ' + y + ')');
+  }
+  if (edge.endLabelLeft) {
+    const el = terminalLabels[edge.id].endLeft;
+    let x = edge.x;
+    let y = edge.y;
+    if (path) {
+      // debugger;
+      const pos = utils.calcTerminalLabelPosition(0, 'end_left', path);
+      x = pos.x;
+      y = pos.y;
+    }
+    el.attr('transform', 'translate(' + x + ', ' + y + ')');
+  }
+  if (edge.endLabelRight) {
+    const el = terminalLabels[edge.id].endRight;
+    let x = edge.x;
+    let y = edge.y;
+    if (path) {
+      // debugger;
+      const pos = utils.calcTerminalLabelPosition(0, 'end_right', path);
       x = pos.x;
       y = pos.y;
     }
@@ -107,7 +221,7 @@ export const intersection = (node, outsidePoint, insidePoint) => {
     outsidePoint.y === edges.y1 ||
     outsidePoint.y === edges.y2
   ) {
-    // logger.warn('calc equals on edge');
+    logger.warn('calc equals on edge');
     return outsidePoint;
   }
 
@@ -121,7 +235,7 @@ export const intersection = (node, outsidePoint, insidePoint) => {
     r = (R * q) / Q;
     const res = {
       x: insidePoint.x < outsidePoint.x ? insidePoint.x + R - r : insidePoint.x - r,
-      y: outsidePoint.y + q
+      y: insidePoint.y < outsidePoint.y ? insidePoint.y + Q - q : insidePoint.y - q
     };
     logger.warn(`topp/bott calc, Q ${Q}, q ${q}, R ${R}, r ${r}`, res);
 
@@ -181,9 +295,18 @@ export const insertEdge = function(elem, e, edge, clusterDb, diagramType, graph)
         logger.trace('inside', edge.toCluster, point, lastPointOutside);
 
         // First point inside the rect
-        const insterection = intersection(node, lastPointOutside, point);
-        logger.trace('intersect', insterection);
-        points.push(insterection);
+        const inter = intersection(node, lastPointOutside, point);
+
+        let pointPresent = false;
+        points.forEach(p => {
+          pointPresent = pointPresent || (p.x === inter.x && p.y === inter.y);
+        });
+        // if (!pointPresent) {
+        if (!points.find(e => e.x === inter.x && e.y === inter.y)) {
+          points.push(inter);
+        } else {
+          logger.warn('no intersect', inter, points);
+        }
         isInside = true;
       } else {
         if (!isInside) points.push(point);
@@ -264,7 +387,8 @@ export const insertEdge = function(elem, e, edge, clusterDb, diagramType, graph)
     .append('path')
     .attr('d', lineFunction(lineData))
     .attr('id', edge.id)
-    .attr('class', ' ' + strokeClasses + (edge.classes ? ' ' + edge.classes : ''));
+    .attr('class', ' ' + strokeClasses + (edge.classes ? ' ' + edge.classes : ''))
+    .attr('style', edge.style);
 
   // DEBUG code, adds a red circle at each edge coordinate
   // edge.points.forEach(point => {
@@ -288,40 +412,67 @@ export const insertEdge = function(elem, e, edge, clusterDb, diagramType, graph)
     url = url.replace(/\(/g, '\\(');
     url = url.replace(/\)/g, '\\)');
   }
-  logger.info('arrowType', edge.arrowType);
-  switch (edge.arrowType) {
+  logger.info('arrowTypeStart', edge.arrowTypeStart);
+  logger.info('arrowTypeEnd', edge.arrowTypeEnd);
+
+  switch (edge.arrowTypeStart) {
+    case 'arrow_cross':
+      svgPath.attr('marker-start', 'url(' + url + '#' + diagramType + '-crossStart' + ')');
+      break;
+    case 'arrow_point':
+      svgPath.attr('marker-start', 'url(' + url + '#' + diagramType + '-pointStart' + ')');
+      break;
+    case 'arrow_barb':
+      svgPath.attr('marker-start', 'url(' + url + '#' + diagramType + '-barbStart' + ')');
+      break;
+    case 'arrow_circle':
+      svgPath.attr('marker-start', 'url(' + url + '#' + diagramType + '-circleStart' + ')');
+      break;
+    case 'aggregation':
+      svgPath.attr('marker-start', 'url(' + url + '#' + diagramType + '-aggregationStart' + ')');
+      break;
+    case 'extension':
+      svgPath.attr('marker-start', 'url(' + url + '#' + diagramType + '-extensionStart' + ')');
+      break;
+    case 'composition':
+      svgPath.attr('marker-start', 'url(' + url + '#' + diagramType + '-compositionStart' + ')');
+      break;
+    case 'dependency':
+      svgPath.attr('marker-start', 'url(' + url + '#' + diagramType + '-dependencyStart' + ')');
+      break;
+    default:
+  }
+  switch (edge.arrowTypeEnd) {
     case 'arrow_cross':
       svgPath.attr('marker-end', 'url(' + url + '#' + diagramType + '-crossEnd' + ')');
-      break;
-    case 'double_arrow_cross':
-      svgPath.attr('marker-end', 'url(' + url + '#' + diagramType + '-crossEnd' + ')');
-      svgPath.attr('marker-start', 'url(' + url + '#' + diagramType + '-crossStart' + ')');
       break;
     case 'arrow_point':
       svgPath.attr('marker-end', 'url(' + url + '#' + diagramType + '-pointEnd' + ')');
       break;
-    case 'double_arrow_point':
-      svgPath.attr('marker-end', 'url(' + url + '#' + diagramType + '-pointEnd' + ')');
-      svgPath.attr('marker-start', 'url(' + url + '#' + diagramType + '-pointStart' + ')');
-      break;
     case 'arrow_barb':
       svgPath.attr('marker-end', 'url(' + url + '#' + diagramType + '-barbEnd' + ')');
-      break;
-    case 'double_arrow_barb':
-      svgPath.attr('marker-end', 'url(' + url + '#' + diagramType + '-barnEnd' + ')');
-      svgPath.attr('marker-start', 'url(' + url + '#' + diagramType + '-barbStart' + ')');
       break;
     case 'arrow_circle':
       svgPath.attr('marker-end', 'url(' + url + '#' + diagramType + '-circleEnd' + ')');
       break;
-    case 'double_arrow_circle':
-      svgPath.attr('marker-end', 'url(' + url + '#' + diagramType + '-circleEnd' + ')');
-      svgPath.attr('marker-start', 'url(' + url + '#' + diagramType + '-circleStart' + ')');
+    case 'aggregation':
+      svgPath.attr('marker-end', 'url(' + url + '#' + diagramType + '-aggregationEnd' + ')');
+      break;
+    case 'extension':
+      svgPath.attr('marker-end', 'url(' + url + '#' + diagramType + '-extensionEnd' + ')');
+      break;
+    case 'composition':
+      svgPath.attr('marker-end', 'url(' + url + '#' + diagramType + '-compositionEnd' + ')');
+      break;
+    case 'dependency':
+      svgPath.attr('marker-end', 'url(' + url + '#' + diagramType + '-dependencyEnd' + ')');
       break;
     default:
   }
-
+  let paths = {};
   if (pointsHasChanged) {
-    return points;
+    paths.updatedPath = points;
   }
+  paths.originalPath = edge.points;
+  return paths;
 };

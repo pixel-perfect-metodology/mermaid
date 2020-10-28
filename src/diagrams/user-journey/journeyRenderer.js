@@ -2,6 +2,7 @@ import { select } from 'd3';
 import { parser } from './parser/journey';
 import journeyDb from './journeyDb';
 import svgDraw from './svgDraw';
+import { configureSvgSize } from '../../utils';
 
 parser.yy = journeyDb;
 
@@ -70,7 +71,8 @@ function drawActorLegend(diagram) {
       x: 40,
       y: yPos + 7,
       fill: '#666',
-      text: person
+      text: person,
+      textMargin: conf.boxTextMargin | 5
     };
     svgDraw.drawText(diagram, labelData);
 
@@ -117,14 +119,8 @@ export const draw = function(text, id) {
   }
   const height = box.stopy - box.starty + 2 * conf.diagramMarginY;
   const width = LEFT_MARGIN + box.stopx + 2 * conf.diagramMarginX;
-  if (conf.useMaxWidth) {
-    diagram.attr('height', '100%');
-    diagram.attr('width', '100%');
-    diagram.attr('style', 'max-width:' + width + 'px;');
-  } else {
-    diagram.attr('height', height);
-    diagram.attr('width', width);
-  }
+
+  configureSvgSize(diagram, height, width, conf.useMaxWidth);
 
   // Draw activity line
   diagram
@@ -232,12 +228,14 @@ export const drawTasks = function(diagram, tasks, verticalPos) {
   let sectionNumber = 0;
   let fill = '#CCC';
   let colour = 'black';
+  let num = 0;
 
   // Draw the tasks
   for (let i = 0; i < tasks.length; i++) {
     let task = tasks[i];
     if (lastSection !== task.section) {
       fill = fills[sectionNumber % fills.length];
+      num = sectionNumber % fills.length;
       colour = textColours[sectionNumber % textColours.length];
 
       const section = {
@@ -245,6 +243,7 @@ export const drawTasks = function(diagram, tasks, verticalPos) {
         y: 50,
         text: task.section,
         fill,
+        num,
         colour
       };
 
@@ -269,6 +268,7 @@ export const drawTasks = function(diagram, tasks, verticalPos) {
     task.height = conf.diagramMarginY;
     task.colour = colour;
     task.fill = fill;
+    task.num = num;
     task.actors = taskActors;
 
     // Draw the box with the attached line
